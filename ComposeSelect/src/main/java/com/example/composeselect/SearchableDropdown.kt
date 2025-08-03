@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.toSize
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -61,29 +63,28 @@ import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.launch
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchableDropdownWithOverlay(
     items: List<String>,
     selectedItem: String?,
     onItemSelected: (String) -> Unit,
     placeholder: String,
-    cornerRadius : CornerBasedShape = MaterialTheme.shapes.extraSmall
+    cornerRadius: CornerBasedShape = MaterialTheme.shapes.extraSmall,
+    focusedBorderColor: Color? = null,
+    unfocusedBorderColor: Color? = null,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,     // custom text color
+    highlightColor: Color = MaterialTheme.colorScheme.primary   // custom highlight color
 ) {
-
     var query by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val textFieldSize = remember { mutableStateOf(IntSize.Zero) }
-
-    val textFieldCoordinates = remember { mutableStateOf(Offset.Zero) }
     val textFieldHeight = remember { mutableStateOf(0f) }
+    val textFieldCoordinates = remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
-
     val view = LocalView.current
-    val windowSize = remember {
-        IntSize(view.width, view.height)
-    }
+    val windowSize = remember { IntSize(view.width, view.height) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Column {
@@ -94,7 +95,15 @@ fun SearchableDropdownWithOverlay(
                     expanded = true
                 },
                 shape = cornerRadius,
-                placeholder = { Text(placeholder) },
+                placeholder = { Text(placeholder, color = textColor.copy(alpha = 0.6f)) },
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedBorderColor = focusedBorderColor ?: MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = unfocusedBorderColor ?: MaterialTheme.colorScheme.outline,
+                    cursorColor = textColor
+                )
+                ,
                 modifier = Modifier
                     .fillMaxWidth()
                     .onGloballyPositioned { coordinates ->
@@ -120,60 +129,63 @@ fun SearchableDropdownWithOverlay(
                 singleLine = true
             )
         }
-        val filteredItems = items.filter {
-            it.contains(query, ignoreCase = true)
-        }
+
+        val filteredItems = items.filter { it.contains(query, ignoreCase = true) }
+
         if (expanded && query.isNotEmpty() && filteredItems.isNotEmpty()) {
             Popup(
                 alignment = Alignment.TopStart,
-                offset = with(density) {
-                        IntOffset(
-                            x = 0,
-                            y = (textFieldHeight.value).toInt()
-                        )
-                    },
+                offset = with(density) { IntOffset(0, textFieldHeight.value.toInt()) },
                 properties = PopupProperties(focusable = false)
             ) {
-
-                    Surface(
-                        modifier = Modifier
-                            .width(with(density) { textFieldSize.value.width.toDp() }) // match TextField width as needed
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                            shape = cornerRadius,
-                            tonalElevation = 8.dp
-                        ) {
-                            LazyColumn {
-                                items(filteredItems.size) { pos ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            val start = filteredItems[pos].indexOf(query, ignoreCase = true)
-                                            if (start != -1) {
-                                                val end = start + query.length
-                                                val annotated = buildAnnotatedString {
-                                                    append(filteredItems[pos].substring(0, start))
-                                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.Blue)) {
-                                                        append(filteredItems[pos].substring(start, end))
-                                                    }
-                                                    append(filteredItems[pos].substring(end))
-                                                }
-                                                Text(annotated, modifier = Modifier.padding(8.dp))
-                                            } else {
-                                                Text(filteredItems[pos], modifier = Modifier.padding(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .width(with(density) { textFieldSize.value.width.toDp() })
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    shape = cornerRadius,
+                    tonalElevation = 8.dp
+                ) {
+                    LazyColumn {
+                        items(filteredItems.size) { pos ->
+                            DropdownMenuItem(
+                                text = {
+                                    val item = filteredItems[pos]
+                                    val start = item.indexOf(query, ignoreCase = true)
+                                    val annotated = buildAnnotatedString {
+                                        if (start != -1) {
+                                            append(item.substring(0, start))
+                                            withStyle(
+                                                SpanStyle(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = highlightColor
+                                                )
+                                            ) {
+                                                append(item.substring(start, start + query.length))
                                             }
-
-                                               },
-                                        onClick = {
-                                            onItemSelected(filteredItems[pos])
-                                            query = filteredItems[pos]
-                                            expanded = false
-                                            focusManager.clearFocus()
+                                            append(item.substring(start + query.length))
+                                        } else {
+                                            append(item)
                                         }
+                                    }
+                                    Text(
+                                        text = annotated,
+                                        color = textColor,
+                                        modifier = Modifier.padding(8.dp)
                                     )
+                                },
+                                onClick = {
+                                    onItemSelected(filteredItems[pos])
+                                    query = filteredItems[pos]
+                                    expanded = false
+                                    focusManager.clearFocus()
                                 }
-                            }
+                            )
                         }
+                    }
                 }
+            }
         }
     }
 }
+
