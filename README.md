@@ -15,7 +15,22 @@ It provides instant suggestions as you type, highlighting matching text and supp
 - 📝 **No Result Handling** – Displays a message when no matching item is found.
 - 📦 **Easy Integration** – Single dependency via JitPack.
 
----
+## Usage & Customization
+```kotlin
+@Composable
+fun DemoScreen() {
+    val items = listOf("Apple", "Banana", "Cherry", "Date", "Elderberry")
+    
+    SearchSuggestionTextField(
+        items = items,
+        placeholder = "Search fruits...",
+        onItemSelected = { selected ->
+            // Handle item selection
+            Log.d("Search", "Selected item: $selected")
+        }
+    )
+}
+```
 
 ## Installation
 
